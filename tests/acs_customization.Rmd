@@ -1,0 +1,62 @@
+---
+title: "ACS customization test"
+output: html_document
+---
+
+Test that the dependency to the custom branch of acs is working.
+
+#Negative control
+* Treatment: Install the standard acs package
+* Test: Query the "acs_dp" dataset
+* Expectation: Generate a randomly obscure error message
+
+```{r}
+install.packages("acs")
+library(acs)
+acs::api.key.install(key='')
+results = acs.fetch(
+     endyear=2013, span = 5,
+     geography=geo.make(zip.code='94709'),
+     table.number="DP02",
+     dataset="acs_dp")
+```
+
+# Positive control
+* Treatment: Install the standard acs package (see above)
+* Test: Query the "acs" dataset
+* Expectation: Get data
+
+```{r}
+results_acs = acs.fetch(
+     endyear=2013, span = 5,
+     geography=geo.make(zip.code='94709'),
+     table.number="B01003",
+     dataset="acs")
+```
+
+# Experiment
+* Treatment: Install this copy of visdom. The dependency list should install a custom branch of acs from my personal github account.
+* Test: Query the "acs_dp" dataset.
+* Expectation: Get data
+
+```{r}
+devtools::install()
+library(acs)
+results_acs_dp = acs.fetch(
+     endyear=2013, span = 5, key='',
+     geography=geo.make(zip.code='94709'),
+     table.number="DP02",
+     dataset="acs_dp")
+```
+
+# Experiment
+* Test: Query the "acs_dp" dataset for both standard and percent data
+* Expectation: Get two columns of data with margins of error included
+* Note, if the percent data doesn't have a margin of error defined, this will break. 
+```{r}
+results_acs_dp_var = acs.fetch(
+     endyear=2013, span = 5, key='', 
+     geography=geo.make(zip.code='94709'),
+     variable=c("DP02_0069", "DP02_0069P"),
+     dataset="acs_dp")
+```

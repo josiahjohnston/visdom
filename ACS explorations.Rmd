@@ -1,0 +1,126 @@
+---
+title: "ACS demo"
+output: html_document
+---
+
+
+Load the library
+```{r}
+library(acs)
+```
+
+Get an API key from <http://api.census.gov/data/key_signup.html>
+Mine is b9cfb06fa75169602cd01ece4bef67ae71654b93
+
+Set the API key
+```{r}
+acs::api.key.install(key='b9cfb06fa75169602cd01ece4bef67ae71654b93')
+```
+
+Set geography
+```{r}
+
+# Get zip codes for CA
+library(visdom)
+data(package="visdom", list="ACS_11_5YR_DP04")
+zip_codes = ACS_11_5YR_DP04$ZCTA
+
+# This calling style works with census tracts, but not zip codes.
+# geography = geo.make(state='CA', zip.code='*', combine=F)
+
+# This works, but pulls down all zip codes for the US
+# geography = geo.make(zip.code='*', combine=F)
+
+# This fails, apparently zip.code doesn't like taking a list.
+# geography = geo.make(zip.code=zip_codes, combine=F)
+
+# This works
+geography = c(geo.make(zip.code=96161), geo.make(zip.code=97635))
+
+# This doesn't work with acs.fetch because geography is a list instead of a geo.set
+# geo.make.zip = function(zip) return(geo.make(zip.code=zip))
+# geography = sapply(X=zip_codes, FUN=geo.make.zip)
+
+# This kind of works as long as I initialize geography as a geo.set
+# It has trouble with all of the CA zip codes at once..
+geography = geo.make(zip.code=zip_codes[1]))
+for (zip in zip_codes[2:length(zip_codes)]) {
+     geography = c(geography, geo.make(zip.code=zip))
+}
+
+# Doing API calls with smaller chunks works...
+geography = geography[1:10]
+```
+
+Fetch data
+```{r}
+
+# Use the acs canonical example of table B01003
+results = acs.fetch(
+     endyear=2011, span = 5,
+     geography=geography,
+     table.number="B01003", # The DP tables don't work... table.number='DP02', 
+     dataset = "acs")
+estimate(results)
+standard.error(results)
+
+
+acs::api.key.install(key='b9cfb06fa75169602cd01ece4bef67ae71654b93')
+results = acs.fetch(
+     endyear=2013, span = 5,
+     geography=geo.make(zip.code='*'),
+     table.number="DP02",
+     dataset="acs_dp")
+estimate(results)
+standard.error(results)
+
+# Same results, but ask for the variable directly
+acs::api.key.install(key='b9cfb06fa75169602cd01ece4bef67ae71654b93')
+results = acs.fetch(
+     endyear=2011,
+     span = 5,
+     geography=geography,
+     variable=c('B01003_001'), 
+     dataset = "acs")
+estimate(results)
+standard.error(results)
+
+# Now try with a variable that we care about
+names(ACS_11_5YR_DP04)[4] # "HC01_VC03"
+results = acs.fetch(
+     endyear=2011,
+     span = 5,
+     geography=geography, 
+     variable=c('HC01_VC03'), 
+     dataset = "acs")
+# Failure!
+# Error in file(file, "rt") : cannot open the connection
+# In addition: Warning message:
+# No data found at:
+#   http://api.census.gov/data/2011/acs5?key=b9cfb06fa75169602cd01ece4bef67ae71654b93&get=HC01_VC03E,HC01_VC03M,NAME&for=zip+code+tabulation+area:89010 
+
+```
+
+It turns out the acs package cannot access the 'Data Profile' tables which constitute all of the variables that we care about. From the census ACS API website <http://www.census.gov/data/developers/data-sets/acs-5year.html>, I see that the "Summary File" and "Data Profile" are accessed differently. 
+http://api.census.gov/data/2014/acs5?...
+vs
+http://api.census.gov/data/2014/acs5/profile?...
+
+I also notice that "Data Profile" data is only available from 2012 onwards. 
+
+API calls: 
+http://api.census.gov/data/2012/acs5/profile?get=DP02_0001PE&for=state:*&key=
+http://api.census.gov/data/2014/acs5/profile?get=DP02_0001PE,NAME&for=zip+code+tabulation+area:89010&key=b9cfb06fa75169602cd01ece4bef67ae71654b93
+
+http://api.census.gov/data/2014/acs5/profile?get=DP02_0001PE,NAME&for=zip+code+tabulation+area:94709&key=b9cfb06fa75169602cd01ece4bef67ae71654b93
+
+http://api.census.gov/data/2014/acs5/profile?get=DP02_0001E,DP02_0001M,DP02_0001PE,DP02_0001PM,DP02_0002E,DP02_0002M,DP02_0002PE,DP02_0002PM,DP02_0003E,DP02_0003M,DP02_0003PE,DP02_0003PM,DP02_0004E,DP02_0004M,DP02_0004PE,DP02_0004PM,DP02_0005E,DP02_0005M,DP02_0005PE,DP02_0005PM,DP02_0006E,DP02_0006M,DP02_0006PE,DP02_0006PM,DP02_0007E,DP02_0007M,DP02_0007PE,DP02_0007PM,DP02_0008E,DP02_0008M,DP02_0008PE,DP02_0008PM,DP02_0009E,DP02_0009M,DP02_0009PE,DP02_0009PM,DP02_0010E,DP02_0010M,NAME&for=zip+code+tabulation+area:96161&key=b9cfb06fa75169602cd01ece4bef67ae71654b93
+
+
+```{r}
+results2 = acs.fetch(
+     endyear=2014, span = 5,
+     geography=geo.make(zip.code=96161), 
+     variable=c('DP02_0001'), 
+     dataset = "acs_dp")
+```
